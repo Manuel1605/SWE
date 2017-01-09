@@ -96,6 +96,10 @@ vars.AddVariables(
 
   PathVariable( 'asagiInputDir', 'location of netcdf input files', '', PathVariable.PathAccept ),
 
+  BoolVariable( 'impalajit', 'use ImpalaJIT', False),
+
+#  PathVariable( 'impalaFilePath', 'path of impala file', '', PathVariable.PathIsFile ),
+  
   EnumVariable( 'solver', 'Riemann solver', 'augrie',
                 allowed_values=('rusanov', 'fwave', 'augrie', 'hybrid', 'fwavevec', 'augriefun', 'augrie_simd')
               ),
@@ -123,6 +127,7 @@ vars.AddVariables(
   PathVariable( 'libSDLDir', 'location of libSDL', None),
   PathVariable( 'netCDFDir', 'location of netCDF', None),
   PathVariable( 'asagiDir', 'location of ASAGI', None),
+  PathVariable( 'impalajitDir', 'location of ImpalaJIT', None),
   PathVariable( 'libxmlDir', 'location of libxml2', None)
 )
 
@@ -349,6 +354,15 @@ if env['asagi'] == True:
     env.Append(RPATH=[os.path.join(env['netCDFDir'], 'lib')])
   if 'asagiInputDir' in env:
     env.Append(CPPFLAGS=['\'-DASAGI_INPUT_DIR="'+env['asagiInputDir']+'"\''])
+
+if env['impalajit'] == True:
+  env.Append(LIBS=['impalajit'])
+  if 'impalajitDir' in env:
+    env.Append(CPPPATH=[env['impalajitDir']+'/include'])
+    env.Append(LIBPATH=[env['impalajitDir']+'/lib'])
+   # env.Append(RPATH=[os.path.join(env['impalajitDir'], 'lib')])
+ # if 'impalaFilePath' in env:
+ #   env.Append(IMPALA_FILE=env['impalaFilePath'])
 
 # xml runtime parameters
 if env['xmlRuntime'] == True: #TODO

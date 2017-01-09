@@ -11,3 +11,4 @@ documentation/doxy/
 .project
 .cproject
 .pydevproject
+.idea

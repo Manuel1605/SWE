@@ -78,6 +78,9 @@ if env['openGL'] == True:
 if env['asagi'] == True:
   sourceFiles.append( ['scenarios/SWE_AsagiScenario.cpp'] )
 
+if env['impalajit'] == True:
+  sourceFiles.append( ['scenarios/SWE_ImpalaJITScenario.cpp'] )
+
 # netCDF writer
 if env['writeNetCDF'] == True:
   sourceFiles.append( ['writer/NetCdfWriter.cpp'] )
@@ -91,8 +94,10 @@ if env['xmlRuntime'] == True:
 # file containing the main-function
 if env['parallelization'] in ['none', 'cuda']:
   if env['solver'] != 'rusanov':
-    if env['openGL'] == False:
+    if env['openGL'] == False and env['impalajit'] == False:
       sourceFiles.append( ['examples/swe_simple.cpp'] )
+    elif env['openGL'] == False and env['impalajit'] == True:
+      sourceFiles.append( ['examples/swe_impalajit.cpp'])
     else:
       sourceFiles.append( ['examples/swe_opengl.cpp'] )
   else:

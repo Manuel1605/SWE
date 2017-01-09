@@ -33,6 +33,7 @@
 #include <iostream>
 #include <cassert>
 #include <limits>
+ #include <sys/time.h>
 
 // gravitational acceleration
 const float SWE_Block::g = 9.81f;
@@ -94,14 +95,33 @@ void SWE_Block::initScenario( float _offsetX, float _offsetY,
 	offsetY = _offsetY;
 
   // initialize water height and discharge
+
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  unsigned long long start =
+    (unsigned long long)(tv.tv_sec) * 1000 +
+    (unsigned long long)(tv.tv_usec) / 1000;
+
   for(int i=1; i<=nx; i++)
     for(int j=1; j<=ny; j++) {
       float x = offsetX + (i-0.5f)*dx;
       float y = offsetY + (j-0.5f)*dy;
       h[i][j] =  i_scenario.getWaterHeight(x,y);
+    };
+
+  gettimeofday(&tv, NULL);
+  unsigned long long end =
+    (unsigned long long)(tv.tv_sec) * 1000 +
+    (unsigned long long)(tv.tv_usec) / 1000;
+  std::cout << "Duration: " << end-start << endl;
+
+  for(int i=1; i<=nx; i++)
+    for(int j=1; j<=ny; j++) {
+      float x = offsetX + (i-0.5f)*dx;
+      float y = offsetY + (j-0.5f)*dy;
       hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
       hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j]; 
-    };
+    }
 
   // initialize bathymetry
   for(int i=0; i<=nx+1; i++) {
