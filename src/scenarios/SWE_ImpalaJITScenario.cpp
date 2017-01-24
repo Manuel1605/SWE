@@ -12,7 +12,5 @@ SWE_ImpalaJITScenario::SWE_ImpalaJITScenario(){
 }
 
 float SWE_ImpalaJITScenario::getWaterHeight(float x, float y){
-	compiler.setVariable("x", x);
-	compiler.setVariable("y", y);
-	return function();
+	return function(x, y);
 }
