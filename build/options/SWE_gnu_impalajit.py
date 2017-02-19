@@ -27,6 +27,7 @@
 #
 
 # Build options
-solver='fwave'
+simdExtensions='AVX'
+solver='augrie_simd'
 impalajit='yes'
 impalajitDir='/home/manuel/git/ImpalaJIT'
