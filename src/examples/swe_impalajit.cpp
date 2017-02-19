@@ -32,7 +32,7 @@
 #include <iostream>
 
 #ifndef CUDA
-#include "blocks/SWE_WavePropagationBlockSIMD.hh"
+#include "blocks/SWE_WavePropagationBlock.hh"
 #else
 #include "blocks/cuda/SWE_WavePropagationBlockCuda.hh"
 #endif
@@ -67,20 +67,20 @@ int main( int argc, char** argv ) {
    */
   // Parse command line parameters
   tools::Args args;
-  #ifndef READXML
+#ifndef READXML
   args.addOption("grid-size-x", 'x', "Number of cells in x direction");
   args.addOption("grid-size-y", 'y', "Number of cells in y direction");
   args.addOption("output-basepath", 'o', "Output base file name");
-  #endif
+#endif
 
   tools::Args::Result ret = args.parse(argc, argv);
 
   switch (ret)
   {
-  case tools::Args::Error:
-	  return 1;
-  case tools::Args::Help:
-	  return 0;
+    case tools::Args::Error:
+      return 1;
+    case tools::Args::Help:
+      return 0;
   }
 
   //! number of grid cells in x- and y-direction.
@@ -90,14 +90,14 @@ int main( int argc, char** argv ) {
   std::string l_baseName;
 
   // read command line parameters
-  #ifndef READXML
+#ifndef READXML
   l_nX = args.getArgument<int>("grid-size-x");
   l_nY = args.getArgument<int>("grid-size-y");
   l_baseName = args.getArgument<std::string>("output-basepath");
-  #endif
+#endif
 
   // read xml file
-  #ifdef READXML
+#ifdef READXML
   assert(false); //TODO: not implemented.
   if(argc != 2) {
     s_sweLogger.printString("Aborting. Please provide a proper input file.");
@@ -111,9 +111,9 @@ int main( int argc, char** argv ) {
 
   CXMLConfig l_xmlConfig;
   l_xmlConfig.loadConfig(l_xmlFile.c_str());
-  #endif
+#endif
 
-  #ifdef ASAGI
+#ifdef ASAGI
   /* Information about the example bathymetry grid (tohoku_gebco_ucsb3_500m_hawaii_bath.nc):
    *
    * Pixel node registration used [Cartesian grid]
@@ -135,10 +135,10 @@ int main( int argc, char** argv ) {
   SWE_AsagiScenario l_scenario( ASAGI_INPUT_DIR "tohoku_gebco_ucsb3_500m_hawaii_bath.nc",
                                 ASAGI_INPUT_DIR "tohoku_gebco_ucsb3_500m_hawaii_displ.nc",
                                 (float) 28800., simulationArea);
-  #else
+#else
   // create a simple artificial scenario
   SWE_ImpalaJITScenario l_scenario;
-  #endif
+#endif
 
   //! number of checkpoints for visualization (at each checkpoint in time, an output file is written).
   int l_numberOfCheckPoints = 20;
@@ -151,11 +151,11 @@ int main( int argc, char** argv ) {
   l_dY = (l_scenario.getBoundaryPos(BND_TOP) - l_scenario.getBoundaryPos(BND_BOTTOM) )/l_nY;
 
   // create a single wave propagation block
-  #ifndef CUDA
-  SWE_WavePropagationBlockSIMD l_wavePropgationBlock(l_nX,l_nY,l_dX,l_dY);
-  #else
+#ifndef CUDA
+  SWE_WavePropagationBlock l_wavePropgationBlock(l_nX,l_nY,l_dX,l_dY);
+#else
   SWE_WavePropagationBlockCuda l_wavePropgationBlock(l_nX,l_nY,l_dX,l_dY);
-  #endif
+#endif
 
   //! origin of the simulation domain in x- and y-direction
   float l_originX, l_originY;
@@ -176,7 +176,7 @@ int main( int argc, char** argv ) {
 
   // compute the checkpoints in time
   for(int cp = 0; cp <= l_numberOfCheckPoints; cp++) {
-     l_checkPoints[cp] = cp*(l_endSimulation/l_numberOfCheckPoints);
+    l_checkPoints[cp] = cp*(l_endSimulation/l_numberOfCheckPoints);
   }
 
   // Init fancy progressbar
@@ -200,10 +200,10 @@ int main( int argc, char** argv ) {
 #else
   // consturct a VtkWriter
   io::VtkWriter l_writer( l_fileName,
-		  l_wavePropgationBlock.getBathymetry(),
-		  l_boundarySize,
-		  l_nX, l_nY,
-		  l_dX, l_dY );
+                          l_wavePropgationBlock.getBathymetry(),
+                          l_boundarySize,
+                          l_nX, l_nY,
+                          l_dX, l_dY );
 #endif
   // Write zero time step
   l_writer.writeTimeStep( l_wavePropgationBlock.getWaterHeight(),
@@ -233,7 +233,7 @@ int main( int argc, char** argv ) {
     while( l_t < l_checkPoints[c] ) {
       // set values in ghost cells:
       l_wavePropgationBlock.setGhostLayer();
-      
+
       // reset the cpu clock
       tools::Logger::logger.resetClockToCurrentTime("Cpu");
 
