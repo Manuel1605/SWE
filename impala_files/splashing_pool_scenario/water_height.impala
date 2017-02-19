@@ -1,3 +1,0 @@
-getWaterHeight(x, y){
-	250+(5-((x)+(y))/200);
-}

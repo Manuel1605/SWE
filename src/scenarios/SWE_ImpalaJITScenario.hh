@@ -13,24 +13,15 @@ public:
 
     SWE_ImpalaJITScenario();
 
-    float getBathymetry(float x, float y) {
-        return -250.f;
-    };
+    float getBathymetry(float x, float y);
 
     float getWaterHeight(float x, float y);
 
-    virtual float endSimulation() { return (float) 15; };
+    float endSimulation();
 
-    float getBoundaryPos(BoundaryEdge i_edge) {
-        if ( i_edge == BND_LEFT )
-            return (float)0;
-        else if ( i_edge == BND_RIGHT)
-            return (float)1000;
-        else if ( i_edge == BND_BOTTOM )
-            return (float)0;
-        else
-            return (float)1000;
-    };
+    float getBoundaryPos(BoundaryEdge i_edge);
+
+    BoundaryType getBoundaryType(BoundaryEdge i_edge);
 
 };
 

@@ -30,4 +30,3 @@
 solver='fwave'
 impalajit='yes'
 impalajitDir='/home/manuel/git/ImpalaJIT'
-#impalaFilePath='/home/manuel/git/applications/SWE/src/scenarios/impala/radial_dam_break/water_height.impala'

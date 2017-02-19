@@ -1,0 +1,12 @@
+getBoundaryPos(i_edge){
+       if ( i_edge == 0 ){
+         return 0;
+       }
+       if ( i_edge == 1){
+         return 1000;
+       }
+       if ( i_edge == 2 ){
+         return 0;
+       }
+       return 1000;
+}

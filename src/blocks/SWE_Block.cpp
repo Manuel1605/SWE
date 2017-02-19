@@ -94,14 +94,14 @@ void SWE_Block::initScenario( float _offsetX, float _offsetY,
 	offsetX = _offsetX;
 	offsetY = _offsetY;
 
-  // initialize water height and discharge
 
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  unsigned long long start =
+  unsigned long long start_waterheight =
     (unsigned long long)(tv.tv_sec) * 1000 +
     (unsigned long long)(tv.tv_usec) / 1000;
 
+  // initialize water height and discharge
   for(int i=1; i<=nx; i++)
     for(int j=1; j<=ny; j++) {
       float x = offsetX + (i-0.5f)*dx;
@@ -110,18 +110,15 @@ void SWE_Block::initScenario( float _offsetX, float _offsetY,
     };
 
   gettimeofday(&tv, NULL);
-  unsigned long long end =
-    (unsigned long long)(tv.tv_sec) * 1000 +
-    (unsigned long long)(tv.tv_usec) / 1000;
-  std::cout << "Duration: " << end-start << endl;
+  unsigned long long end_waterheight =
+          (unsigned long long)(tv.tv_sec) * 1000 +
+          (unsigned long long)(tv.tv_usec) / 1000;
+  std::cout << "Duration Waterheight: " << end_waterheight-start_waterheight << endl;
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
-      hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
-      hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j]; 
-    }
+  gettimeofday(&tv, NULL);
+  unsigned long long start_bathymetry =
+          (unsigned long long)(tv.tv_sec) * 1000 +
+          (unsigned long long)(tv.tv_usec) / 1000;
 
   // initialize bathymetry
   for(int i=0; i<=nx+1; i++) {
@@ -130,6 +127,21 @@ void SWE_Block::initScenario( float _offsetX, float _offsetY,
                                           offsetY + (j-0.5f)*dy );
     }
   }
+  gettimeofday(&tv, NULL);
+  unsigned long long end_bathymetry =
+          (unsigned long long)(tv.tv_sec) * 1000 +
+          (unsigned long long)(tv.tv_usec) / 1000;
+  std::cout << "Duration Bathymetry: " << end_bathymetry-start_bathymetry << endl;
+
+
+
+  for(int i=1; i<=nx; i++)
+    for(int j=1; j<=ny; j++) {
+      float x = offsetX + (i-0.5f)*dx;
+      float y = offsetY + (j-0.5f)*dy;
+      hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
+      hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j];
+    }
 
   // in the case of multiple blocks the calling routine takes care about proper boundary conditions.
   if( i_multipleBlocks == false ) {

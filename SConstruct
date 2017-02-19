@@ -359,7 +359,7 @@ if env['impalajit'] == True:
   env.Append(LIBS=['impalajit'])
   if 'impalajitDir' in env:
     env.Append(CPPPATH=[env['impalajitDir']+'/include'])
-    env.Append(LIBPATH=[env['impalajitDir']+'/lib'])
+    env.Append(LIBPATH=[env['impalajitDir']+'/build/lib'])
    # env.Append(RPATH=[os.path.join(env['impalajitDir'], 'lib')])
  # if 'impalaFilePath' in env:
  #   env.Append(IMPALA_FILE=env['impalaFilePath'])

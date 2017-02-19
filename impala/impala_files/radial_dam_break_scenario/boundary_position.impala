@@ -1,0 +1,12 @@
+getBoundaryPos(iedge){
+       if ( iedge == 0 ){
+         return 0;
+       }
+       if ( iedge == 1){
+         return 1000;
+       }
+       if ( iedge == 2 ){
+         return 0;
+       }
+       return 1000;
+}
