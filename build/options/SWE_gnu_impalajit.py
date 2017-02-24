@@ -29,4 +29,4 @@
 # Build options
 solver='fwave'
 impalajit='yes'
-impalajitDir='/home/manuel/git/ImpalaJIT'
+#impalajitDir=
