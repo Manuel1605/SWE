@@ -165,7 +165,20 @@ int main( int argc, char** argv ) {
   l_originY = l_scenario.getBoundaryPos(BND_BOTTOM);
 
   // initialize the wave propagation block
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  unsigned long long start_initialization =
+          (unsigned long long)(tv.tv_sec) * 1000 +
+          (unsigned long long)(tv.tv_usec) / 1000;
+  // initialize the wave propagation block
   l_wavePropgationBlock.initScenario(l_originX, l_originY, l_scenario);
+
+  gettimeofday(&tv, NULL);
+  unsigned long long end_initialization =
+          (unsigned long long)(tv.tv_sec) * 1000 +
+          (unsigned long long)(tv.tv_usec) / 1000;
+
+  std::cout << "Initialization Time: " << end_initialization-start_initialization << std::endl;
 
 
   //! time when the simulation ends.

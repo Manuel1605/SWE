@@ -33,7 +33,6 @@
 #include <iostream>
 #include <cassert>
 #include <limits>
- #include <sys/time.h>
 
 // gravitational acceleration
 const float SWE_Block::g = 9.81f;
@@ -41,28 +40,28 @@ const float SWE_Block::g = 9.81f;
 /**
  * Constructor: allocate variables for simulation
  *
- * unknowns h (water height), hu,hv (discharge in x- and y-direction), 
+ * unknowns h (water height), hu,hv (discharge in x- and y-direction),
  * and b (bathymetry) are defined on grid indices [0,..,nx+1]*[0,..,ny+1]
  * -> computational domain is [1,..,nx]*[1,..,ny]
  * -> plus ghost cell layer
  *
- * The constructor is protected: no instances of SWE_Block can be 
+ * The constructor is protected: no instances of SWE_Block can be
  * generated.
  *
  */
 SWE_Block::SWE_Block(int l_nx, int l_ny,
-		float l_dx, float l_dy)
-	: nx(l_nx), ny(l_ny),
-	  dx(l_dx), dy(l_dy),
-	  h(nx+2,ny+2), hu(nx+2,ny+2), hv(nx+2,ny+2), b(nx+2,ny+2),
-	  // This three are only set here, so eclipse does not complain
-	  maxTimestep(0), offsetX(0), offsetY(0)
+                     float l_dx, float l_dy)
+        : nx(l_nx), ny(l_ny),
+          dx(l_dx), dy(l_dy),
+          h(nx+2,ny+2), hu(nx+2,ny+2), hv(nx+2,ny+2), b(nx+2,ny+2),
+        // This three are only set here, so eclipse does not complain
+          maxTimestep(0), offsetX(0), offsetY(0)
 {
-  // set WALL as default boundary condition
-  for (int i=0; i<4; i++) {
-     boundary[i] = PASSIVE;
-     neighbour[i] = NULL;
-  };
+    // set WALL as default boundary condition
+    for (int i=0; i<4; i++) {
+        boundary[i] = PASSIVE;
+        neighbour[i] = NULL;
+    };
 }
 
 /**
@@ -73,7 +72,7 @@ SWE_Block::~SWE_Block() {
 
 //==================================================================
 // methods for external read/write to main variables h, hu, hv, and b
-// Note: temporary and non-local variables depending on the main 
+// Note: temporary and non-local variables depending on the main
 // variables are synchronised before/after their update or read
 //==================================================================
 
@@ -84,76 +83,45 @@ SWE_Block::~SWE_Block() {
  * should be set. This is because an isolated SWE_Block doesn't have any in information about the grid.
  * Therefore the calling routine, which has the information about multiple blocks, has to take care about setting
  * the right boundary conditions.
- * 
+ *
  * @param i_scenario scenario, which is used during the setup.
  * @param i_multipleBlocks are the multiple SWE_blocks?
  */
 void SWE_Block::initScenario( float _offsetX, float _offsetY,
-							  SWE_Scenario &i_scenario,
+                              SWE_Scenario &i_scenario,
                               const bool i_multipleBlocks ) {
-	offsetX = _offsetX;
-	offsetY = _offsetY;
+    offsetX = _offsetX;
+    offsetY = _offsetY;
 
+    // initialize water height and discharge
+    for(int i=1; i<=nx; i++)
+        for(int j=1; j<=ny; j++) {
+            float x = offsetX + (i-0.5f)*dx;
+            float y = offsetY + (j-0.5f)*dy;
+            h[i][j] =  i_scenario.getWaterHeight(x,y);
+            hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
+            hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j];
+        };
 
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  unsigned long long start_waterheight =
-    (unsigned long long)(tv.tv_sec) * 1000 +
-    (unsigned long long)(tv.tv_usec) / 1000;
-
-  // initialize water height and discharge
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
-      h[i][j] =  i_scenario.getWaterHeight(x,y);
-    };
-
-  gettimeofday(&tv, NULL);
-  unsigned long long end_waterheight =
-          (unsigned long long)(tv.tv_sec) * 1000 +
-          (unsigned long long)(tv.tv_usec) / 1000;
-  std::cout << "Duration Waterheight: " << end_waterheight-start_waterheight << endl;
-
-  gettimeofday(&tv, NULL);
-  unsigned long long start_bathymetry =
-          (unsigned long long)(tv.tv_sec) * 1000 +
-          (unsigned long long)(tv.tv_usec) / 1000;
-
-  // initialize bathymetry
-  for(int i=0; i<=nx+1; i++) {
-    for(int j=0; j<=ny+1; j++) {
-      b[i][j] = i_scenario.getBathymetry( offsetX + (i-0.5f)*dx,
-                                          offsetY + (j-0.5f)*dy );
-    }
-  }
-  gettimeofday(&tv, NULL);
-  unsigned long long end_bathymetry =
-          (unsigned long long)(tv.tv_sec) * 1000 +
-          (unsigned long long)(tv.tv_usec) / 1000;
-  std::cout << "Duration Bathymetry: " << end_bathymetry-start_bathymetry << endl;
-
-
-
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
-      hu[i][j] = i_scenario.getVeloc_u(x,y) * h[i][j];
-      hv[i][j] = i_scenario.getVeloc_v(x,y) * h[i][j];
+    // initialize bathymetry
+    for(int i=0; i<=nx+1; i++) {
+        for(int j=0; j<=ny+1; j++) {
+            b[i][j] = i_scenario.getBathymetry( offsetX + (i-0.5f)*dx,
+                                                offsetY + (j-0.5f)*dy );
+        }
     }
 
-  // in the case of multiple blocks the calling routine takes care about proper boundary conditions.
-  if( i_multipleBlocks == false ) {
-    // obtain boundary conditions for all four edges from scenario
-    setBoundaryType(BND_LEFT, i_scenario.getBoundaryType(BND_LEFT));
-    setBoundaryType(BND_RIGHT, i_scenario.getBoundaryType(BND_RIGHT));
-    setBoundaryType(BND_BOTTOM, i_scenario.getBoundaryType(BND_BOTTOM));
-    setBoundaryType(BND_TOP, i_scenario.getBoundaryType(BND_TOP));
-  }
+    // in the case of multiple blocks the calling routine takes care about proper boundary conditions.
+    if( i_multipleBlocks == false ) {
+        // obtain boundary conditions for all four edges from scenario
+        setBoundaryType(BND_LEFT, i_scenario.getBoundaryType(BND_LEFT));
+        setBoundaryType(BND_RIGHT, i_scenario.getBoundaryType(BND_RIGHT));
+        setBoundaryType(BND_BOTTOM, i_scenario.getBoundaryType(BND_BOTTOM));
+        setBoundaryType(BND_TOP, i_scenario.getBoundaryType(BND_TOP));
+    }
 
-  // perform update after external write to variables 
-  synchAfterWrite();
+    // perform update after external write to variables
+    synchAfterWrite();
 
 }
 
@@ -163,12 +131,12 @@ void SWE_Block::initScenario( float _offsetX, float _offsetY,
  */
 void SWE_Block::setWaterHeight(float (*_h)(float, float)) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      h[i][j] =  _h(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
-    };
+    for(int i=1; i<=nx; i++)
+        for(int j=1; j<=ny; j++) {
+            h[i][j] =  _h(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
+        };
 
-  synchWaterHeightAfterWrite();
+    synchWaterHeightAfterWrite();
 }
 
 /**
@@ -178,15 +146,15 @@ void SWE_Block::setWaterHeight(float (*_h)(float, float)) {
  */
 void SWE_Block::setDischarge(float (*_u)(float, float), float (*_v)(float, float)) {
 
-  for(int i=1; i<=nx; i++)
-    for(int j=1; j<=ny; j++) {
-      float x = offsetX + (i-0.5f)*dx;
-      float y = offsetY + (j-0.5f)*dy;
-      hu[i][j] = _u(x,y) * h[i][j];
-      hv[i][j] = _v(x,y) * h[i][j]; 
-    };
+    for(int i=1; i<=nx; i++)
+        for(int j=1; j<=ny; j++) {
+            float x = offsetX + (i-0.5f)*dx;
+            float y = offsetY + (j-0.5f)*dy;
+            hu[i][j] = _u(x,y) * h[i][j];
+            hv[i][j] = _v(x,y) * h[i][j];
+        };
 
-  synchDischargeAfterWrite();
+    synchDischargeAfterWrite();
 }
 
 /**
@@ -196,11 +164,11 @@ void SWE_Block::setDischarge(float (*_u)(float, float), float (*_v)(float, float
  */
 void SWE_Block::setBathymetry(float _b) {
 
-  for(int i=0; i<=nx+1; i++)
-    for(int j=0; j<=ny+1; j++)
-      b[i][j] = _b;
+    for(int i=0; i<=nx+1; i++)
+        for(int j=0; j<=ny+1; j++)
+            b[i][j] = _b;
 
-  synchBathymetryAfterWrite();
+    synchBathymetryAfterWrite();
 }
 
 /**
@@ -210,11 +178,11 @@ void SWE_Block::setBathymetry(float _b) {
  */
 void SWE_Block::setBathymetry(float (*_b)(float, float)) {
 
-  for(int i=0; i<=nx+1; i++)
-    for(int j=0; j<=ny+1; j++)
-      b[i][j] = _b(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
+    for(int i=0; i<=nx+1; i++)
+        for(int j=0; j<=ny+1; j++)
+            b[i][j] = _b(offsetX + (i-0.5f)*dx, offsetY + (j-0.5f)*dy);
 
-  synchBathymetryAfterWrite();
+    synchBathymetryAfterWrite();
 }
 
 // /** 
@@ -250,33 +218,33 @@ void SWE_Block::setBathymetry(float (*_b)(float, float)) {
 /**
  * return reference to water height unknown h
  */
-const Float2D& SWE_Block::getWaterHeight() { 
-  synchWaterHeightBeforeRead();
-  return h; 
+const Float2D& SWE_Block::getWaterHeight() {
+    synchWaterHeightBeforeRead();
+    return h;
 };
 
 /**
  * return reference to discharge unknown hu
  */
-const Float2D& SWE_Block::getDischarge_hu() { 
-  synchDischargeBeforeRead();
-  return hu; 
+const Float2D& SWE_Block::getDischarge_hu() {
+    synchDischargeBeforeRead();
+    return hu;
 };
 
 /**
  * return reference to discharge unknown hv
  */
-const Float2D& SWE_Block::getDischarge_hv() { 
-  synchDischargeBeforeRead();
-  return hv;
+const Float2D& SWE_Block::getDischarge_hv() {
+    synchDischargeBeforeRead();
+    return hv;
 };
 
 /**
  * return reference to bathymetry unknown b
  */
-const Float2D& SWE_Block::getBathymetry() { 
-  synchBathymetryBeforeRead();
-  return b; 
+const Float2D& SWE_Block::getBathymetry() {
+    synchBathymetryBeforeRead();
+    return b;
 };
 
 //==================================================================
@@ -293,8 +261,8 @@ const Float2D& SWE_Block::getBathymetry() {
 void
 SWE_Block::simulateTimestep (float dt)
 {
-	computeNumericalFluxes ();
-	updateUnknowns (dt);
+    computeNumericalFluxes ();
+    updateUnknowns (dt);
 }
 
 /**
@@ -310,22 +278,22 @@ SWE_Block::simulateTimestep (float dt)
 float
 SWE_Block::simulate (float i_tStart, float i_tEnd)
 {
-	float t = i_tStart;
-	do {
-		//set values in ghost cells
-		setGhostLayer ();
+    float t = i_tStart;
+    do {
+        //set values in ghost cells
+        setGhostLayer ();
 
-		// compute numerical fluxes for every edge
-		// -> computeNumericalFluxes might update maxTimestep
-		computeNumericalFluxes ();
-		// update unknowns accordingly
-		updateUnknowns (maxTimestep);
-		t += maxTimestep;
+        // compute numerical fluxes for every edge
+        // -> computeNumericalFluxes might update maxTimestep
+        computeNumericalFluxes ();
+        // update unknowns accordingly
+        updateUnknowns (maxTimestep);
+        t += maxTimestep;
 
-		std::cout << "Simulation at time " << t << std::endl << std::flush;
-	} while (t < i_tEnd);
+        std::cout << "Simulation at time " << t << std::endl << std::flush;
+    } while (t < i_tEnd);
 
-	return t;
+    return t;
 }
 
 /**
@@ -338,13 +306,13 @@ SWE_Block::simulate (float i_tStart, float i_tEnd)
 void SWE_Block::setBoundaryType( const BoundaryEdge i_edge,
                                  const BoundaryType i_boundaryType,
                                  const SWE_Block1D* i_inflow) {
-	boundary[i_edge] = i_boundaryType;
-	neighbour[i_edge] = i_inflow;
+    boundary[i_edge] = i_boundaryType;
+    neighbour[i_edge] = i_inflow;
 
-	if (i_boundaryType == OUTFLOW || i_boundaryType == WALL)
-		// One of the boundary was changed to OUTFLOW or WALL
-		// -> Update the bathymetry for this boundary
-		setBoundaryBathymetry();
+    if (i_boundaryType == OUTFLOW || i_boundaryType == WALL)
+        // One of the boundary was changed to OUTFLOW or WALL
+        // -> Update the bathymetry for this boundary
+        setBoundaryBathymetry();
 }
 
 /**
@@ -354,33 +322,33 @@ void SWE_Block::setBoundaryType( const BoundaryEdge i_edge,
  */
 void SWE_Block::setBoundaryBathymetry()
 {
-	// set bathymetry values in the ghost layer, if necessary
-	if( boundary[BND_LEFT] == OUTFLOW || boundary[BND_LEFT] == WALL ) {
-		memcpy(b[0], b[1], sizeof(float)*(ny+2));
-	}
-	if( boundary[BND_RIGHT] == OUTFLOW || boundary[BND_RIGHT] == WALL ) {
-		memcpy(b[nx+1], b[nx], sizeof(float)*(ny+2));
-	}
-	if( boundary[BND_BOTTOM] == OUTFLOW || boundary[BND_BOTTOM] == WALL ) {
-		for(int i=0; i<=nx+1; i++) {
-			b[i][0] = b[i][1];
-		}
-	}
-	if( boundary[BND_TOP] == OUTFLOW || boundary[BND_TOP] == WALL ) {
-		for(int i=0; i<=nx+1; i++) {
-			b[i][ny+1] = b[i][ny];
-		}
-	}
+    // set bathymetry values in the ghost layer, if necessary
+    if( boundary[BND_LEFT] == OUTFLOW || boundary[BND_LEFT] == WALL ) {
+        memcpy(b[0], b[1], sizeof(float)*(ny+2));
+    }
+    if( boundary[BND_RIGHT] == OUTFLOW || boundary[BND_RIGHT] == WALL ) {
+        memcpy(b[nx+1], b[nx], sizeof(float)*(ny+2));
+    }
+    if( boundary[BND_BOTTOM] == OUTFLOW || boundary[BND_BOTTOM] == WALL ) {
+        for(int i=0; i<=nx+1; i++) {
+            b[i][0] = b[i][1];
+        }
+    }
+    if( boundary[BND_TOP] == OUTFLOW || boundary[BND_TOP] == WALL ) {
+        for(int i=0; i<=nx+1; i++) {
+            b[i][ny+1] = b[i][ny];
+        }
+    }
 
 
-	// set corner values
-        b[0][0]       = b[1][1];
-        b[0][ny+1]    = b[1][ny];
-        b[nx+1][0]    = b[nx][1];
-        b[nx+1][ny+1] = b[nx][ny];
+    // set corner values
+    b[0][0]       = b[1][1];
+    b[0][ny+1]    = b[1][ny];
+    b[nx+1][0]    = b[nx][1];
+    b[nx+1][ny+1] = b[nx][ny];
 
-	// synchronize after an external update of the bathymetry
-	synchBathymetryAfterWrite();
+    // synchronize after an external update of the bathymetry
+    synchBathymetryAfterWrite();
 }
 
 /**
@@ -390,17 +358,17 @@ void SWE_Block::setBoundaryBathymetry()
  */
 SWE_Block1D* SWE_Block::registerCopyLayer(BoundaryEdge edge){
 
-  switch (edge) {
-    case BND_LEFT:
-      return new SWE_Block1D( h.getColProxy(1), hu.getColProxy(1), hv.getColProxy(1) );
-    case BND_RIGHT:
-      return new SWE_Block1D( h.getColProxy(nx), hu.getColProxy(nx), hv.getColProxy(nx) );
-    case BND_BOTTOM:
-      return new SWE_Block1D( h.getRowProxy(1), hu.getRowProxy(1), hv.getRowProxy(1));
-    case BND_TOP:
-      return new SWE_Block1D( h.getRowProxy(ny), hu.getRowProxy(ny), hv.getRowProxy(ny));
-  };
-  return NULL;
+    switch (edge) {
+        case BND_LEFT:
+            return new SWE_Block1D( h.getColProxy(1), hu.getColProxy(1), hv.getColProxy(1) );
+        case BND_RIGHT:
+            return new SWE_Block1D( h.getColProxy(nx), hu.getColProxy(nx), hv.getColProxy(nx) );
+        case BND_BOTTOM:
+            return new SWE_Block1D( h.getRowProxy(1), hu.getRowProxy(1), hv.getRowProxy(1));
+        case BND_TOP:
+            return new SWE_Block1D( h.getRowProxy(ny), hu.getRowProxy(ny), hv.getRowProxy(ny));
+    };
+    return NULL;
 }
 
 /**
@@ -415,18 +383,18 @@ SWE_Block1D* SWE_Block::registerCopyLayer(BoundaryEdge edge){
  */
 SWE_Block1D* SWE_Block::grabGhostLayer(BoundaryEdge edge){
 
-  boundary[edge] = PASSIVE;
-  switch (edge) {
-    case BND_LEFT:
-      return new SWE_Block1D( h.getColProxy(0), hu.getColProxy(0), hv.getColProxy(0) );
-    case BND_RIGHT:
-      return new SWE_Block1D( h.getColProxy(nx+1), hu.getColProxy(nx+1), hv.getColProxy(nx+1) );
-    case BND_BOTTOM:
-      return new SWE_Block1D( h.getRowProxy(0), hu.getRowProxy(0), hv.getRowProxy(0));
-    case BND_TOP:
-      return new SWE_Block1D( h.getRowProxy(ny+1), hu.getRowProxy(ny+1), hv.getRowProxy(ny+1));
-  };
-  return NULL;
+    boundary[edge] = PASSIVE;
+    switch (edge) {
+        case BND_LEFT:
+            return new SWE_Block1D( h.getColProxy(0), hu.getColProxy(0), hv.getColProxy(0) );
+        case BND_RIGHT:
+            return new SWE_Block1D( h.getColProxy(nx+1), hu.getColProxy(nx+1), hv.getColProxy(nx+1) );
+        case BND_BOTTOM:
+            return new SWE_Block1D( h.getRowProxy(0), hu.getRowProxy(0), hv.getRowProxy(0));
+        case BND_TOP:
+            return new SWE_Block1D( h.getRowProxy(ny+1), hu.getRowProxy(ny+1), hv.getRowProxy(ny+1));
+    };
+    return NULL;
 }
 
 
@@ -439,61 +407,61 @@ SWE_Block1D* SWE_Block::grabGhostLayer(BoundaryEdge edge){
 void SWE_Block::setGhostLayer() {
 
 #ifdef DBG
-  cout << "Set simple boundary conditions " << endl << flush;
+    cout << "Set simple boundary conditions " << endl << flush;
 #endif
-  // call to virtual function to set ghost layer values 
-  setBoundaryConditions();
+    // call to virtual function to set ghost layer values
+    setBoundaryConditions();
 
-  // for a CONNECT boundary, data will be copied from a neighbouring
-  // SWE_Block (via a SWE_Block1D proxy object)
-  // -> these copy operations cannot be executed in GPU/accelerator memory, e.g.
-  //    setBoundaryConditions then has to take care that values are copied.
-  
-#ifdef DBG
-  cout << "Set CONNECT boundary conditions in main memory " << endl << flush;
-#endif
-  // left boundary
-  if (boundary[BND_LEFT] == CONNECT) {
-     for(int j=0; j<=ny+1; j++) {
-       h[0][j] = neighbour[BND_LEFT]->h[j];
-       hu[0][j] = neighbour[BND_LEFT]->hu[j];
-       hv[0][j] = neighbour[BND_LEFT]->hv[j];
-      };
-  };
-  
-  // right boundary
-  if(boundary[BND_RIGHT] == CONNECT) {
-     for(int j=0; j<=ny+1; j++) {
-       h[nx+1][j] = neighbour[BND_RIGHT]->h[j];
-       hu[nx+1][j] = neighbour[BND_RIGHT]->hu[j];
-       hv[nx+1][j] = neighbour[BND_RIGHT]->hv[j];
-      };
-  };
-
-  // bottom boundary
-  if(boundary[BND_BOTTOM] == CONNECT) {
-     for(int i=0; i<=nx+1; i++) {
-       h[i][0] = neighbour[BND_BOTTOM]->h[i];
-       hu[i][0] = neighbour[BND_BOTTOM]->hu[i];
-       hv[i][0] = neighbour[BND_BOTTOM]->hv[i];
-      };
-  };
-
-  // top boundary
-  if(boundary[BND_TOP] == CONNECT) {
-     for(int i=0; i<=nx+1; i++) {
-       h[i][ny+1] = neighbour[BND_TOP]->h[i];
-       hu[i][ny+1] = neighbour[BND_TOP]->hu[i];
-       hv[i][ny+1] = neighbour[BND_TOP]->hv[i];
-     }
-  };
+    // for a CONNECT boundary, data will be copied from a neighbouring
+    // SWE_Block (via a SWE_Block1D proxy object)
+    // -> these copy operations cannot be executed in GPU/accelerator memory, e.g.
+    //    setBoundaryConditions then has to take care that values are copied.
 
 #ifdef DBG
-  cout << "Synchronize ghost layers (for heterogeneous memory) " << endl << flush;
+    cout << "Set CONNECT boundary conditions in main memory " << endl << flush;
 #endif
-  // synchronize the ghost layers (for PASSIVE and CONNECT conditions)
-  // with accelerator memory
-  synchGhostLayerAfterWrite();
+    // left boundary
+    if (boundary[BND_LEFT] == CONNECT) {
+        for(int j=0; j<=ny+1; j++) {
+            h[0][j] = neighbour[BND_LEFT]->h[j];
+            hu[0][j] = neighbour[BND_LEFT]->hu[j];
+            hv[0][j] = neighbour[BND_LEFT]->hv[j];
+        };
+    };
+
+    // right boundary
+    if(boundary[BND_RIGHT] == CONNECT) {
+        for(int j=0; j<=ny+1; j++) {
+            h[nx+1][j] = neighbour[BND_RIGHT]->h[j];
+            hu[nx+1][j] = neighbour[BND_RIGHT]->hu[j];
+            hv[nx+1][j] = neighbour[BND_RIGHT]->hv[j];
+        };
+    };
+
+    // bottom boundary
+    if(boundary[BND_BOTTOM] == CONNECT) {
+        for(int i=0; i<=nx+1; i++) {
+            h[i][0] = neighbour[BND_BOTTOM]->h[i];
+            hu[i][0] = neighbour[BND_BOTTOM]->hu[i];
+            hv[i][0] = neighbour[BND_BOTTOM]->hv[i];
+        };
+    };
+
+    // top boundary
+    if(boundary[BND_TOP] == CONNECT) {
+        for(int i=0; i<=nx+1; i++) {
+            h[i][ny+1] = neighbour[BND_TOP]->h[i];
+            hu[i][ny+1] = neighbour[BND_TOP]->hu[i];
+            hv[i][ny+1] = neighbour[BND_TOP]->hv[i];
+        }
+    };
+
+#ifdef DBG
+    cout << "Synchronize ghost layers (for heterogeneous memory) " << endl << flush;
+#endif
+    // synchronize the ghost layers (for PASSIVE and CONNECT conditions)
+    // with accelerator memory
+    synchGhostLayerAfterWrite();
 }
 
 /**
@@ -507,34 +475,34 @@ void SWE_Block::setGhostLayer() {
  */
 void SWE_Block::computeMaxTimestep( const float i_dryTol,
                                     const float i_cflNumber ) {
-  
-  // initialize the maximum wave speed
-  float l_maximumWaveSpeed = (float) 0;
 
-  // compute the maximum wave speed within the grid
-  for(int i=1; i <= nx; i++) {
-    for(int j=1; j <= ny; j++) {
-      if( h[i][j] > i_dryTol ) {
-        float l_momentum = std::max( std::abs( hu[i][j] ),
-                                     std::abs( hv[i][j] ) );
+    // initialize the maximum wave speed
+    float l_maximumWaveSpeed = (float) 0;
 
-        float l_particleVelocity = l_momentum / h[i][j];
-        
-        // approximate the wave speed
-        float l_waveSpeed = l_particleVelocity + std::sqrt( g * h[i][j] );
-        
-        l_maximumWaveSpeed = std::max( l_maximumWaveSpeed, l_waveSpeed );
-      }
+    // compute the maximum wave speed within the grid
+    for(int i=1; i <= nx; i++) {
+        for(int j=1; j <= ny; j++) {
+            if( h[i][j] > i_dryTol ) {
+                float l_momentum = std::max( std::abs( hu[i][j] ),
+                                             std::abs( hv[i][j] ) );
+
+                float l_particleVelocity = l_momentum / h[i][j];
+
+                // approximate the wave speed
+                float l_waveSpeed = l_particleVelocity + std::sqrt( g * h[i][j] );
+
+                l_maximumWaveSpeed = std::max( l_maximumWaveSpeed, l_waveSpeed );
+            }
+        }
     }
-  }
-  
-  float l_minimumCellLength = std::min( dx, dy );
 
-  // set the maximum time step variable
-  maxTimestep = l_minimumCellLength / l_maximumWaveSpeed;
+    float l_minimumCellLength = std::min( dx, dy );
 
-  // apply the CFL condition
-  maxTimestep *= i_cflNumber;
+    // set the maximum time step variable
+    maxTimestep = l_minimumCellLength / l_maximumWaveSpeed;
+
+    // apply the CFL condition
+    maxTimestep *= i_cflNumber;
 }
 
 
@@ -551,162 +519,162 @@ void SWE_Block::computeMaxTimestep( const float i_dryTol,
  */
 void SWE_Block::setBoundaryConditions() {
 
-  // CONNECT boundary conditions are set in the calling function setGhostLayer
-  // PASSIVE boundary conditions need to be set by the component using SWE_Block
+    // CONNECT boundary conditions are set in the calling function setGhostLayer
+    // PASSIVE boundary conditions need to be set by the component using SWE_Block
 
-  // left boundary
-  switch(boundary[BND_LEFT]) {
-    case WALL:
-    {
-      for(int j=1; j<=ny; j++) {
-        h[0][j] = h[1][j];
-        hu[0][j] = -hu[1][j];
-        hv[0][j] = hv[1][j];
-      };
-      break;
-    }
-    case OUTFLOW:
-    {
-      for(int j=1; j<=ny; j++) {
-        h[0][j] = h[1][j];
-        hu[0][j] = hu[1][j];
-        hv[0][j] = hv[1][j];
-      };
-      break;
-    }
-    case CONNECT:
-    case PASSIVE:
-      break;
-    default:
-      assert(false);
-      break;
-  };
+    // left boundary
+    switch(boundary[BND_LEFT]) {
+        case WALL:
+        {
+            for(int j=1; j<=ny; j++) {
+                h[0][j] = h[1][j];
+                hu[0][j] = -hu[1][j];
+                hv[0][j] = hv[1][j];
+            };
+            break;
+        }
+        case OUTFLOW:
+        {
+            for(int j=1; j<=ny; j++) {
+                h[0][j] = h[1][j];
+                hu[0][j] = hu[1][j];
+                hv[0][j] = hv[1][j];
+            };
+            break;
+        }
+        case CONNECT:
+        case PASSIVE:
+            break;
+        default:
+            assert(false);
+            break;
+    };
 
-  // right boundary
-  switch(boundary[BND_RIGHT]) {
-    case WALL:
-    {
-      for(int j=1; j<=ny; j++) {
-        h[nx+1][j] = h[nx][j];
-        hu[nx+1][j] = -hu[nx][j];
-        hv[nx+1][j] = hv[nx][j];
-      };
-      break;
-    }
-    case OUTFLOW:
-    {
-      for(int j=1; j<=ny; j++) {
-        h[nx+1][j] = h[nx][j];
-        hu[nx+1][j] = hu[nx][j];
-        hv[nx+1][j] = hv[nx][j];
-      };
-      break;
-    }
-    case CONNECT:
-    case PASSIVE:
-      break;
-    default:
-      assert(false);
-      break;
-  };
+    // right boundary
+    switch(boundary[BND_RIGHT]) {
+        case WALL:
+        {
+            for(int j=1; j<=ny; j++) {
+                h[nx+1][j] = h[nx][j];
+                hu[nx+1][j] = -hu[nx][j];
+                hv[nx+1][j] = hv[nx][j];
+            };
+            break;
+        }
+        case OUTFLOW:
+        {
+            for(int j=1; j<=ny; j++) {
+                h[nx+1][j] = h[nx][j];
+                hu[nx+1][j] = hu[nx][j];
+                hv[nx+1][j] = hv[nx][j];
+            };
+            break;
+        }
+        case CONNECT:
+        case PASSIVE:
+            break;
+        default:
+            assert(false);
+            break;
+    };
 
-  // bottom boundary
-  switch(boundary[BND_BOTTOM]) {
-    case WALL:
-    {
-      for(int i=1; i<=nx; i++) {
-        h[i][0] = h[i][1];
-        hu[i][0] = hu[i][1];
-        hv[i][0] = -hv[i][1];
-      };
-      break;
-    }
-    case OUTFLOW:
-    {
-      for(int i=1; i<=nx; i++) {
-        h[i][0] = h[i][1];
-        hu[i][0] = hu[i][1];
-        hv[i][0] = hv[i][1];
-      };
-      break;
-    }
-    case CONNECT:
-    case PASSIVE:
-      break;
-    default:
-      assert(false);
-      break;
-  };
+    // bottom boundary
+    switch(boundary[BND_BOTTOM]) {
+        case WALL:
+        {
+            for(int i=1; i<=nx; i++) {
+                h[i][0] = h[i][1];
+                hu[i][0] = hu[i][1];
+                hv[i][0] = -hv[i][1];
+            };
+            break;
+        }
+        case OUTFLOW:
+        {
+            for(int i=1; i<=nx; i++) {
+                h[i][0] = h[i][1];
+                hu[i][0] = hu[i][1];
+                hv[i][0] = hv[i][1];
+            };
+            break;
+        }
+        case CONNECT:
+        case PASSIVE:
+            break;
+        default:
+            assert(false);
+            break;
+    };
 
-  // top boundary
-  switch(boundary[BND_TOP]) {
-    case WALL:
-    {
-      for(int i=1; i<=nx; i++) {
-        h[i][ny+1] = h[i][ny];
-        hu[i][ny+1] = hu[i][ny];
-        hv[i][ny+1] = -hv[i][ny];
-      };
-      break;
-    }
-    case OUTFLOW:
-    {
-      for(int i=1; i<=nx; i++) {
-        h[i][ny+1] = h[i][ny];
-        hu[i][ny+1] = hu[i][ny];
-        hv[i][ny+1] = hv[i][ny];
-      };
-      break;
-    }
-    case CONNECT:
-    case PASSIVE:
-      break;
-    default:
-      assert(false);
-      break;
-  };
+    // top boundary
+    switch(boundary[BND_TOP]) {
+        case WALL:
+        {
+            for(int i=1; i<=nx; i++) {
+                h[i][ny+1] = h[i][ny];
+                hu[i][ny+1] = hu[i][ny];
+                hv[i][ny+1] = -hv[i][ny];
+            };
+            break;
+        }
+        case OUTFLOW:
+        {
+            for(int i=1; i<=nx; i++) {
+                h[i][ny+1] = h[i][ny];
+                hu[i][ny+1] = hu[i][ny];
+                hv[i][ny+1] = hv[i][ny];
+            };
+            break;
+        }
+        case CONNECT:
+        case PASSIVE:
+            break;
+        default:
+            assert(false);
+            break;
+    };
 
-  /*
-   * Set values in corner ghost cells. Required for dimensional splitting and visualizuation.
-   *   The quantities in the corner ghost cells are chosen to generate a zero Riemann solutions
-   *   (steady state) with the neighboring cells. For the lower left corner (0,0) using
-   *   the values of (1,1) generates a steady state (zero) Riemann problem for (0,0) - (0,1) and
-   *   (0,0) - (1,0) for both outflow and reflecting boundary conditions.
-   * 
-   *   Remark: Unsplit methods don't need corner values.
-   *
-   * Sketch (reflecting boundary conditions, lower left corner):
-   * <pre>
-   *                  **************************
-   *                  *  _    _    *  _    _   *   
-   *  Ghost           * |  h   |   * |  h   |  *   
-   *  cell    ------> * | -hu  |   * |  hu  |  * <------ Cell (1,1) inside the domain
-   *  (0,1)           * |_ hv _|   * |_ hv _|  *  
-   *                  *            *           *
-   *                  **************************
-   *                  *  _    _    *  _    _   *
-   *   Corner Ghost   * |  h   |   * |  h   |  *  
-   *   cell   ------> * |  hu  |   * |  hu  |  * <----- Ghost cell (1,0)
-   *   (0,0)          * |_ hv _|   * |_-hv _|  * 
-   *                  *            *           *
-   *                  **************************
-   * </pre>
-   */
-  h [0][0] = h [1][1];
-  hu[0][0] = hu[1][1];
-  hv[0][0] = hv[1][1];
+    /*
+     * Set values in corner ghost cells. Required for dimensional splitting and visualizuation.
+     *   The quantities in the corner ghost cells are chosen to generate a zero Riemann solutions
+     *   (steady state) with the neighboring cells. For the lower left corner (0,0) using
+     *   the values of (1,1) generates a steady state (zero) Riemann problem for (0,0) - (0,1) and
+     *   (0,0) - (1,0) for both outflow and reflecting boundary conditions.
+     *
+     *   Remark: Unsplit methods don't need corner values.
+     *
+     * Sketch (reflecting boundary conditions, lower left corner):
+     * <pre>
+     *                  **************************
+     *                  *  _    _    *  _    _   *
+     *  Ghost           * |  h   |   * |  h   |  *
+     *  cell    ------> * | -hu  |   * |  hu  |  * <------ Cell (1,1) inside the domain
+     *  (0,1)           * |_ hv _|   * |_ hv _|  *
+     *                  *            *           *
+     *                  **************************
+     *                  *  _    _    *  _    _   *
+     *   Corner Ghost   * |  h   |   * |  h   |  *
+     *   cell   ------> * |  hu  |   * |  hu  |  * <----- Ghost cell (1,0)
+     *   (0,0)          * |_ hv _|   * |_-hv _|  *
+     *                  *            *           *
+     *                  **************************
+     * </pre>
+     */
+    h [0][0] = h [1][1];
+    hu[0][0] = hu[1][1];
+    hv[0][0] = hv[1][1];
 
-  h [0][ny+1] = h [1][ny];
-  hu[0][ny+1] = hu[1][ny];
-  hv[0][ny+1] = hv[1][ny];
-  
-  h [nx+1][0] = h [nx][1];
-  hu[nx+1][0] = hu[nx][1];
-  hv[nx+1][0] = hv[nx][1];
+    h [0][ny+1] = h [1][ny];
+    hu[0][ny+1] = hu[1][ny];
+    hv[0][ny+1] = hv[1][ny];
 
-  h [nx+1][ny+1] = h [nx][ny];
-  hu[nx+1][ny+1] = hu[nx][ny];
-  hv[nx+1][ny+1] = hv[nx][ny];
+    h [nx+1][0] = h [nx][1];
+    hu[nx+1][0] = hu[nx][1];
+    hv[nx+1][0] = hv[nx][1];
+
+    h [nx+1][ny+1] = h [nx][ny];
+    hu[nx+1][ny+1] = hu[nx][ny];
+    hv[nx+1][ny+1] = hv[nx][ny];
 }
 
 
@@ -724,9 +692,9 @@ void SWE_Block::setBoundaryConditions() {
  * after an external update of the main variables h, hu, hv, and b.
  */
 void SWE_Block::synchAfterWrite() {
-   synchWaterHeightAfterWrite();
-   synchDischargeAfterWrite();
-   synchBathymetryAfterWrite();
+    synchWaterHeightAfterWrite();
+    synchDischargeAfterWrite();
+    synchBathymetryAfterWrite();
 }
 
 /**
@@ -759,9 +727,9 @@ void SWE_Block::synchGhostLayerAfterWrite() {}
  * before an external access to the main variables h, hu, hv, and b.
  */
 void SWE_Block::synchBeforeRead() {
-   synchWaterHeightBeforeRead();
-   synchDischargeBeforeRead();
-   synchBathymetryBeforeRead();
+    synchWaterHeightBeforeRead();
+    synchDischargeBeforeRead();
+    synchBathymetryBeforeRead();
 }
 
 /**
