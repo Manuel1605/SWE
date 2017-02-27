@@ -57,6 +57,8 @@
 #include "tools/help.hh"
 #include "tools/Logger.hh"
 #include "tools/ProgressBar.hh"
+#include <limits>
+#include <sys/time.h>
 
 /**
  * Main program for the simulation on a single SWE_WavePropagationBlock.
