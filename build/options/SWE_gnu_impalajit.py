@@ -27,6 +27,7 @@
 #
 
 # Build options
-solver='fwave'
+solver='augrie'
 impalajit='yes'
-#impalajitDir=
+compiler='intel'
+impalajitDir='/home/manuel/git/ImpalaJIT'
